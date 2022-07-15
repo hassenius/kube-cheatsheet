@@ -1,0 +1,54 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crd-reader
+rules:
+- apiGroups: ["apiextensions.k8s.io"]
+  #
+  # at the HTTP level, the name of the resource for accessing Secret
+  # objects is "secrets"
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dependent-apply-job
+rules:
+- apiGroups: ["monitoring.coreos.com"]
+  resources: ["servicemonitors", "podmonitors"]
+  verbs: ["get", "list", "watch", "create"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dependent-apply-job
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dependent-apply-job
+subjects:
+- kind: ServiceAccount
+  name: dependent-apply-job
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: crd-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dependent-apply-job
+subjects:
+- kind: ServiceAccount
+  name: dependent-apply-job
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: crd-reader
+  apiGroup: rbac.authorization.k8s.io
+# - kind: Role
+#   name: dependent-apply-job
+#   apiGroup: rbac.authorization.k8s.io

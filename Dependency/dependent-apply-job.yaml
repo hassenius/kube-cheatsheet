@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dependent-apply
+  labels:
+    app: dependent-apply
+spec:
+  # wait for up to 2 hours for the API to be available using initcontainer 
+  # then apply manifests from configmap using kubectl
+  backoffLimit: 6
+  activeDeadlineSeconds: 1200
+  completionMode: Indexed
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccount: dependent-apply-job
+      initContainers:
+      - name: wait-for-api
+        image: docker-local.artifactory.servicenow.net/gitlab.servicenow.net/syseng/snc-k8s/config/bitnami/kubectl:1.21
+        command: ["/bin/bash", "-c"]
+        args:
+        - '{ echo "Waiting for monitoring CRDs" ; grep -q -m 1 "monitoring.coreos.com"; echo "found" ; kill $!; } < <(kubectl get crd -w)' # from https://stackoverflow.com/a/57126479/5438386
+      containers:
+      - name: apply-manifests
+        image:  docker-local.artifactory.servicenow.net/gitlab.servicenow.net/syseng/snc-k8s/config/bitnami/kubectl:1.21
+        args:
+        - apply
+        - -f
+        - /manifests/
+        volumeMounts:
+        - name: config-volume
+          mountPath: /manifests
+      volumes:
+      - name: config-volume
+        configMap:
+          name: monitor-manifests
+
+
+
